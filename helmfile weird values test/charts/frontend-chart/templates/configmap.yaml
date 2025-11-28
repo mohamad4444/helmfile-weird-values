@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-config
+  namespace: {{ .Values.globalConfig.namespace }}
+data:
+  config.js: |
+    // Auto-generated configuration - Do not edit manually
+    export const ENVIRONMENT = "{{ .Values.globalConfig.environment }}";
+
+    export const KEYCLOAK_CONFIG = {
+      url: "{{ .Values.globalConfig.keycloak.url }}",
+      realm: "{{ .Values.globalConfig.keycloak.realm }}",
+      clientId: "{{ .Values.globalConfig.keycloak.clientId }}",
+      scope: "openid profile email offline_access"
+    };
+
+    export const API_ENDPOINTS = {
+      purchases: "{{ .Values.globalConfig.api.purchases }}",
+      inventory: "{{ .Values.globalConfig.api.inventory }}"
+    };
+    // Debug info
+    console.log("Frontend configuration loaded for environment:", "{{ .Values.environment }}");

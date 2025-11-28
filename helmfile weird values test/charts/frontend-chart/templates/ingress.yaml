@@ -1,0 +1,48 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}-ingress
+  namespace: purchase-app
+  annotations:
+    cert-manager.io/cluster-issuer: my-ca-issuer
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "https://frontend.local"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+      - frontend.local
+    secretName: frontend-tls
+  rules:
+    - host: frontend.local
+      http:
+        paths:
+          # Inventory API - all paths under /inventory-api
+          - path: /inventory-api
+            pathType: Prefix
+            backend:
+              service:
+                name: inventory-service-app
+                port:
+                  number: 8080
+          
+          # Purchase API - all paths under /purchase-api
+          - path: /purchase-api
+            pathType: Prefix
+            backend:
+              service:
+                name: purchase-service-app
+                port:
+                  number: 8080
+          # Frontend application
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "frontend-chart.fullname" . }}
+                port:
+                  number: {{ .Values.service.port }}
+          
+
+{{- end }}

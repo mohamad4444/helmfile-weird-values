@@ -1,0 +1,4 @@
+apiVersion: v2
+name: gitlab-runner-sa
+description: ServiceAccount + RBAC for GitLab Runner
+version: 0.1.0

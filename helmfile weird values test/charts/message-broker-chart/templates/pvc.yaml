@@ -1,0 +1,18 @@
+{{- if .Values.artemis.storage.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "artemis.pvcName" . }}
+  namespace: purchase-app
+  labels:
+    {{- include "artemis.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    {{- toYaml .Values.artemis.storage.accessModes | nindent 4 }}
+  resources:
+    requests:
+      storage: {{ .Values.artemis.storage.size }}
+  {{- if .Values.artemis.storage.storageClass }}
+  storageClassName: {{ .Values.artemis.storage.storageClass }}
+  {{- end }}
+{{- end }}

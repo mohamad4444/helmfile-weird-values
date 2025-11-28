@@ -1,0 +1,21 @@
+# values/grafana-values.yaml
+persistence:
+  enabled: true
+  size: 1Gi
+  # storageClassName: standard
+
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+    - name: Loki
+      type: loki
+      url: http://loki.monitoring.svc.cluster.local:3100
+      version: 1
+      editable: false
+
+adminUser: admin
+adminPassword: admin # Change this in production!
+
+service:
+  type: ClusterIP

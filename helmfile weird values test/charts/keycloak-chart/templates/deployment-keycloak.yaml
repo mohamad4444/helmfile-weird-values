@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: keycloak
+  template:
+    metadata:
+      labels:
+        app: keycloak
+    spec:
+      containers:
+        - name: keycloak
+          image: {{ .Values.keycloak.image }}
+          args:
+            - start-dev
+            - --http-relative-path={{ .Values.keycloak.httpRelativePath }}
+            - --proxy-headers={{ .Values.keycloak.proxyHeaders }}
+            - --hostname-strict={{ .Values.keycloak.hostnameStrict | toString | lower }}
+            - --import-realm
+          env:
+            - name: KC_DB
+              value: postgres
+            - name: KC_DB_URL
+              value: jdbc:postgresql://keycloak-db:5432/{{ .Values.postgres.dbName }}
+            - name: KC_DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-db-secret
+                  key: POSTGRES_USER
+            - name: KC_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-db-secret
+                  key: POSTGRES_PASSWORD
+            - name: PROXY_ADDRESS_FORWARDING
+              value: "{{ .Values.keycloak.proxyAddressForwarding }}"
+            - name: KEYCLOAK_FRONTEND_URL
+              value: {{ .Values.keycloak.frontendUrl }}
+            - name: KEYCLOAK_ADMIN
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-admin-secret
+                  key: KEYCLOAK_ADMIN
+            - name: KEYCLOAK_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-admin-secret
+                  key: KEYCLOAK_ADMIN_PASSWORD
+            - name: KC_PROXY
+              value: {{ .Values.keycloak.proxyMode }}
+          ports:
+            - containerPort: 8080

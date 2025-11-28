@@ -1,0 +1,27 @@
+namespace: purchase-app
+
+app:
+  name: inventory-service
+  port: 8080
+  # Add the two missing values for the app key
+  securityLogLevel: INFO
+  queueName: my-queue
+  image: "localhost:5000/inventory-service:latest"
+
+database:
+  name: inventorydb
+  user: inventoryuser
+  password: inventorypass
+  port: 5432
+  image: "postgres:17.5"
+  storage: 1Gi
+
+keycloak:
+  service: "keycloak:8080"
+  realm: "purchase-service-realm"
+
+artemis:
+  service: "message-broker-service:61616"
+  # Add the two missing values for the artemis key
+  user: artemis
+  password: artemis

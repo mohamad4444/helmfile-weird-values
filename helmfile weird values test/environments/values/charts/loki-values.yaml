@@ -1,0 +1,79 @@
+# loki-volumes.yaml - Loki Monolithic Deployment for Minikube
+# Deploy with: helm install loki grafana/loki -n loki --create-nospace -f loki-volumes.yaml
+
+# Deployment Mode - SingleBinary means all Loki components run in one pod
+deploymentMode: SingleBinary
+
+# Single Binary Configuration
+singleBinary:
+  replicas: 1
+  persistence:
+    enabled: true
+    storageClass: "standard" # Minikube's default storage class
+    accessModes:
+    - ReadWriteOnce
+    size: 10Gi # Appropriate size for Minikube development
+
+# Loki Configuration
+loki:
+  commonConfig:
+    replication_factor: 1 # Must match replica count for monolithic mode
+  storage:
+    type: 'filesystem' # Use local filesystem storage (appropriate for Minikube)
+    filesystem:
+      chunks_directory: "/var/loki/chunks"
+      rules_directory: "/var/loki/rules"
+  schemaConfig:
+    configs:
+    - from: "2024-01-01"
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: loki_index_
+        period: 24h
+  # Required to avoid storage errors in filesystem mode
+  rulerConfig:
+    storage:
+      type: local
+  limits_config:
+    allow_structured_metadata: true
+    volume_enabled: true
+
+# Disable MinIO (not needed with filesystem storage)
+minio:
+  enabled: false
+
+# Disable Gateway (optional - remove if you want the nginx gateway)
+gateway:
+  enabled: false
+
+# Disable Canary (optional - remove if you want health monitoring)
+lokiCanary:
+  enabled: true
+
+# Explicitly disable all microservices components (safety measure)
+backend:
+  enabled: false
+read:
+  enabled: false
+write:
+  enabled: false
+ingester:
+  enabled: false
+querier:
+  enabled: false
+queryFrontend:
+  enabled: false
+queryScheduler:
+  enabled: false
+distributor:
+  enabled: false
+compactor:
+  enabled: false
+indexGateway:
+  enabled: false
+bloomCompactor:
+  enabled: false
+bloomGateway:
+  enabled: false
