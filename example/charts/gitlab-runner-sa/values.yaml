@@ -1,2 +1,0 @@
-namespace: gitlab-runner
-serviceAccountName: gitlab-runner

@@ -1,5 +1,0 @@
-apiVersion: v2
-name: artemis
-description: Apache Artemis Message Broker
-version: 0.1.0
-appVersion: latest
