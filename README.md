@@ -2,18 +2,203 @@
 
 This repository demonstrates a clean, intuitive pattern for handling and deep-merging values across multiple environments in `helmfile`.
 
-## What it Solves
-Helmfile normally passes environment-specific values as global variables in `.Values`. To use them inside a release block, you generally have to write cumbersome Go templates per release or hardcode the overrides. This repository eliminates that redundancy.
+## Microservice Chart Structure
 
-It solves the problem by replicating the merging behavior of umbrella Helm charts. It uses a single template (`env-magic.gotmpl`) to implement a robust 4-tier value hierarchy.
+In modern cloud-native architectures, managing complex dependencies requires strict logical boundaries. As documented in the thesis, this deployment strategy adheres to a distinct **"One Chart Per Microservice"** model:
+- **1:1 Mapping:** Each business service runs exactly one dedicated Helm chart.
+- **Component Nesting:** For microservices requiring multiple internal components (e.g., an `inventory-service` needing both a `backend` deployment and a strictly coupled `database`), values are nested securely under component-specific keys.
+
+By isolating services into dedicated charts, fault isolation is guaranteed, and independent lifecycle management is preserved.
+
+### Structure Examples
+
+Below are two concrete examples visualizing this strategy:
+
+**1. Simple Service Target (e.g., `frontend-chart/values.yaml`)**
+A standard, standalone frontend deployment mapped cleanly with no internal dependencies:
+```yaml
+replicaCount: 1
+
+image:
+  repository: localhost:5000/nginx-frontend
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 80
+```
+
+**2. Multi-Component Service Target (e.g., `inventory-service-chart/values.yaml`)**
+A complex business service strictly coupled to its own internal state, safely nested under component-specific keys (`app:` and `database:`):
+```yaml
+app:
+  name: inventory-service
+  port: 8080
+  image: "localhost:5000/inventory-service:latest"
+
+database:
+  name: inventorydb
+  user: inventoryuser
+  port: 5432
+  image: "postgres:17.5"
+```
+
+## The Unified Values Management Strategy
+
+However, passing environment-specific configurations into this strict component structure using standard Helmfile practices typically requires writing cumbersome Go templates per release or maintaining fragmented override files.
+
+This repository solves that problem by replicating the merging behavior of **umbrella Helm charts**. It uses a single template (`env-magic.gotmpl`) to implement a robust 4-tier value hierarchy and flattening engine, allowing strict precedence control via Go templates.
+
+This mechanism ensures that the unified environment configurations (which dictate the values for *all* microservices in one place) dynamically flatten to match the native `values.yaml` structure expected by the individual microservice charts.
+
+### The Value Processing Workflow
+
+The typical Helmfile approach requires separate YAML override files for every chart per environment. Our architecture introduces a single source of truth (e.g., `dev.yaml`), processing the nested release values and merging them according to strict precedence rules before passing them on to the Helm CLI.
+
+```mermaid
+graph TD
+    A[Environment File: dev.yaml] -->|Structured Values| B(Helmfile Process)
+    B -->|Go Template Execution| C{env-magic.gotmpl}
+    
+    C -->|Extracts globalDefaults| D1(Additive Overrides)
+    C -->|Extracts Release Values| D2(Frontend/Backend Overrides)
+    C -->|Extracts globalOverrides| D3(Force Overrides)
+    C -->|Extracts globalConfig| D4(Preserved Namespace)
+
+    D1 --> E(Flattened Values)
+    D2 --> E
+    D3 --> E
+    D4 --> E
+    
+    E -->|Passes Overrides to CLI| F[Helm Install/Upgrade]
+    G[Chart's default values.yaml] --> F
+    F --> H[Rendered Kubernetes Manifests]
+
+    classDef envFile stroke-width:2px;
+    classDef tmpl stroke-width:2px;
+    classDef helm stroke-width:2px;
+    
+    class A envFile;
+    class C tmpl;
+    class F,H helm;
+```
 
 ### How `env-magic.gotmpl` Logic Works
 The template performs a top-down merge with the following overwrite precedence (from lowest to highest):
 
-1. **`globalDefaults`**: Used as the base configuration for all releases.
-2. **`releaseValues`**: Specific settings targeted for the current release (matches `.Release.Name`). These overwrite the `globalDefaults`.
-3. **`globalOverrides`**: Strict overrides that take top priority and overwrite all the previous values.
-4. **`globalConfig`**: Added cleanly under its own isolated namespace (it does not overwrite the top-level keys).
+1. **`globalDefaults`**: Additive baseline overrides configured in Helmfile. 
+2. **Release-Specific Values**: Specific settings targeted for the current release (matches `.Release.Name`). These explicitly overwrite the `globalDefaults`.
+3. **`globalOverrides`**: Final strict overwrites applied universally with the highest precedence.
+4. **`globalConfig`**: A specially preserved namespace that is seamlessly passed natively down to the charts without being flattened.
+
+```mermaid
+flowchart BT
+    subgraph Precedence
+        direction BT
+        V1("1. Chart's Default values.yaml") --> V2("2. globalDefaults Additive Layer")
+        V2 --> V3("3. Release-Specific Overrides (e.g., frontend:)")
+        V3 --> V4("4. globalOverrides Force Layer")
+   
+    end
+    
+    subgraph "Excluded from Hierarchy"
+        V5("5. globalConfig Namespace (Preserved Top-Level)")
+    end
+```
+
+### Complete Environment Example (From Thesis)
+To illustrate how all four tiers function simultaneously within a unified environment, consider the following comprehensive `dev.yaml` explicitly defining baseline settings alongside release-specific and forced configurations:
+
+```yaml
+# environments/dev.yaml - Complete environment configuration
+globalConfig:
+  environment: dev
+  domain: dev.example.com
+  cluster: k8s-dev-01
+
+globalDefaults:
+  replicaCount: 1
+  image:
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+
+globalOverrides:
+  monitoring:
+    enabled: true
+  logging:
+    level: DEBUG
+
+# Release-specific configurations
+frontend:
+  replicaCount: 2
+  image:
+    repository: nginx
+    tag: latest
+  service:
+    type: LoadBalancer
+
+inventory-service:
+  app:
+    image: "localhost:5000/inventory-service:v2.0"
+    securityLogLevel: DEBUG
+  database:
+    storage: 20Gi
+```
+When Helmfile evaluates a release like `frontend`, `env-magic.gotmpl` compiles this file top-down: it loads the `globalDefaults`, explicitly applying the `frontend:` map over it (overriding `replicaCount`), and enforces the absolute `globalOverrides` onto the result, rendering a clean structure ready for Helm.
+
+### Flattening Nested Configurations
+
+A common limitation of Helmfile is passing release blocks to charts (e.g., wrapping values in a `frontend:` block). Traditionally, if a chart wasn't coded to expect `.Values.frontend`, these values would be ignored entirely. 
+
+Our Go template mitigates this by extracting the release map and dropping it onto the root of the `.Values` map dynamically. **This behavior accurately mimics the recursive nesting flattening behavior of native [Helm Umbrella Charts](https://helm.sh/docs/chart_template_guide/subcharts_and_globals/).** Just like umbrella charts automatically unpack nested blocks that match a subchart's folder name, our architecture flattens environment variables down so charts receive configurations exactly as if they were defined inside their root `values.yaml`.
+
+#### Flattening Example
+**Helmfile Setup (e.g. `dev.yaml`)**
+```yaml
+# environments/dev.yaml
+frontend:
+  replicaCount: 3
+  image:
+    repository: nginx
+```
+**Rendered Output to Helm**
+```yaml
+# Flattens directly to the root for the chart to consume
+replicaCount: 3
+image:
+  repository: nginx
+```
+
+#### Subchart Override Example
+When Helmfile evaluates these nested structures, the final flat variables are applied on top of the target chart's default values. To demonstrate this deep-merging behavior on a multi-component chart, consider the `inventory-service` defaults:
+
+**Chart Defaults (e.g. `charts/inventory-service-chart/values.yaml`)**
+```yaml
+app:
+  name: inventory-service
+  port: 8080
+  image: "localhost:5000/inventory-service:latest"
+  securityLogLevel: INFO
+
+database:
+  name: inventorydb
+  port: 5432
+  storage: 1Gi
+```
+
+The parsed payload generated from our unified `dev.yaml` explicit override:
+```yaml
+app:
+  image: "localhost:5000/inventory-service:v2.0"
+  securityLogLevel: DEBUG
+database:
+  storage: 20Gi
+```
+This payload will take strict precedence. The value resolution deep-merges perfectly overwriting the target variables (`image`, `securityLogLevel`, `storage`) while gracefully preserving the chart's native defaults (`name`, `port`) at the top level within the subchart's template context.
 
 **The magic mechanism behind this:**
 Helmfile merges the environment values file (e.g. `dev.yaml`) and exposes it. `env-magic.gotmpl` intercepts this map, strips out only what is relevant based on the precedence above, sets the keys into an empty dictionary `dict` via Go's `set`, and ultimately exposes the final computed tree `toYaml`. This keeps your `helmfile.yaml` incredibly DRY and clean.
