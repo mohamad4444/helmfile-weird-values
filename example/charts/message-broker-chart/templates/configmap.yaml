@@ -1,0 +1,11 @@
+{{- if not .Values.artemis.security.existingConfigMap }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "artemis.configmapName" . }}
+  namespace: purchase-app
+  labels:
+    {{- include "artemis.labels" . | nindent 4 }}
+data:
+  anonymous-login: {{ .Values.artemis.security.anonymousLogin | quote }}
+{{- end }}

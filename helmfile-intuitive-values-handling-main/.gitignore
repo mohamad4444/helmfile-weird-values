@@ -1,2 +1,0 @@
-# ignore the output of helmfile write-values
-helmfile-*

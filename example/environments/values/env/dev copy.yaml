@@ -1,0 +1,44 @@
+# globalConfig:
+#   caIssuerName: "my-ca-issuer"
+#   environment: "dev"
+#   keycloak:
+#     url: "http://localhost:8280/auth"
+#     realm: "purchase-service-realm"
+#     clientId: "frontend-app"
+#   api:
+#     purchases: "http://localhost:5000/purchases"
+#     inventory: "http://localhost:5000/inventory"
+
+# # globalDefaults and globalOverrides are flattened into the top level and applied to all releases.
+# # Merge order:
+# #   1. Chart defaults (values.yaml) always loaded first no matter what. this is the default behaviour
+# #   2. globalDefaults (overrides chart defaults)
+# #   3. Release-specific values (overrides both chart defaults and globalDefaults)
+# #   4. globalOverrides (overrides everything above)
+# #   5. globalConfig (nested under merged.globalConfig, not flattened)
+# # This ensures global settings are applied consistently, while allowing per-release customization.
+# globalDefaults:
+#   logLevel: "debug"
+#   monitoring: false
+#   replicaCount: 1
+
+# globalOverrides:
+#   security:
+#     enabled: false
+#     scan: "none"
+#   replicaCount: 1
+
+# # Release-specific values.
+# # These keys (e.g. "frontend", "keycloak") match the release name.
+# # At render time, the helper flattens them into the top-level chart values
+# # and merges them with the chart's own defaults (values.yaml).
+# frontend:
+#   # release-specific. what it does is it flattens the values and merges them with whatever in that release chart/values.yaml
+#   replicaCount: 2
+#   image:
+#     tag: "dev-frontend-latest"
+
+# keycloak:
+#   # release-specific
+#   service:
+#     type: ClusterIP

@@ -1,0 +1,18 @@
+# Global Configs
+globalConfig:
+  foo: yaml
+
+# Basic defaults
+globalDefaults:
+  color: blue
+  size: medium
+
+# Release-specific settings  
+test:
+  color: green
+  speed: fast
+
+# These override EVERYTHING
+globalOverrides:
+  color: red
+  priority: high

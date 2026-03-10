@@ -1,3 +1,0 @@
-helmfile -e <env> template --args="--debug"
-helmfile -e <env> write-values
-helmfile -e dev -l name=my-release write-values

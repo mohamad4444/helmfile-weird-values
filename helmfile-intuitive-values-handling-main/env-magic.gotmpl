@@ -1,3 +1,0 @@
-{{- $releaseValues := index .Values .Release.Name | default dict -}}
-{{- $globalValues := .Values.global | default dict -}}
-{{- merge $globalValues $releaseValues | toYaml -}}

@@ -1,0 +1,6 @@
+color: red
+globalConfig:
+  foo: yaml
+priority: high
+size: medium
+speed: fast
