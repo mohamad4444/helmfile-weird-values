@@ -1,0 +1,10 @@
+environments:
+  dev:
+    values:
+    - values/env/dev.yaml
+---
+releases:
+- name: test
+  chart: ../charts/test-chart
+  values:
+  - values/env/env-magic.gotmpl
